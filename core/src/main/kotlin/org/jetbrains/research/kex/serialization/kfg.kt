@@ -1,8 +1,9 @@
 package org.jetbrains.research.kex.serialization
 
 import kotlinx.serialization.*
-import kotlinx.serialization.builtins.list
-import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.internal.SerialClassDescImpl
+import kotlinx.serialization.internal.StringDescriptor
+import kotlinx.serialization.internal.StringSerializer
 import kotlinx.serialization.modules.SerialModule
 import kotlinx.serialization.modules.serializersModuleOf
 import org.jetbrains.research.kfg.ClassManager
@@ -14,7 +15,6 @@ import org.jetbrains.research.kfg.ir.value.instruction.CmpOpcode
 import org.jetbrains.research.kfg.type.Type
 import org.jetbrains.research.kfg.type.parseDesc
 
-@ImplicitReflectionSerializer
 fun getKfgSerialModule(cm: ClassManager): SerialModule {
     ClassSerializer.cm = cm
     MethodSerializer.cm = cm
@@ -62,10 +62,10 @@ fun getKfgSerialModule(cm: ClassManager): SerialModule {
 @Serializer(forClass = BinaryOpcode::class)
 object BinaryOpcodeSerializer : KSerializer<BinaryOpcode> {
     override val descriptor: SerialDescriptor
-        get() = PrimitiveDescriptor("opcode", PrimitiveKind.STRING)
+        get() = StringDescriptor.withName("opcode")
 
-    override fun serialize(encoder: Encoder, value: BinaryOpcode) {
-        encoder.encodeString(value.name)
+    override fun serialize(encoder: Encoder, obj: BinaryOpcode) {
+        encoder.encodeString(obj.name)
     }
 
     override fun deserialize(decoder: Decoder): BinaryOpcode {
@@ -77,10 +77,10 @@ object BinaryOpcodeSerializer : KSerializer<BinaryOpcode> {
 @Serializer(forClass = CmpOpcode::class)
 object CmpOpcodeSerializer : KSerializer<CmpOpcode> {
     override val descriptor: SerialDescriptor
-        get() = PrimitiveDescriptor("opcode", PrimitiveKind.STRING)
+        get() = StringDescriptor.withName("opcode")
 
-    override fun serialize(encoder: Encoder, value: CmpOpcode) {
-        encoder.encodeString(value.name)
+    override fun serialize(encoder: Encoder, obj: CmpOpcode) {
+        encoder.encodeString(obj.name)
     }
 
     override fun deserialize(decoder: Decoder): CmpOpcode {
@@ -92,10 +92,10 @@ object CmpOpcodeSerializer : KSerializer<CmpOpcode> {
 @Serializer(forClass = CallOpcode::class)
 object CallOpcodeSerializer : KSerializer<CallOpcode> {
     override val descriptor: SerialDescriptor
-        get() = PrimitiveDescriptor("opcode", PrimitiveKind.STRING)
+        get() = StringDescriptor.withName("opcode")
 
-    override fun serialize(encoder: Encoder, value: CallOpcode) {
-        encoder.encodeString(value.name)
+    override fun serialize(encoder: Encoder, obj: CallOpcode) {
+        encoder.encodeString(obj.name)
     }
 
     override fun deserialize(decoder: Decoder): CallOpcode {
@@ -105,20 +105,21 @@ object CallOpcodeSerializer : KSerializer<CallOpcode> {
 }
 
 @Serializer(forClass = Location::class)
-@ImplicitReflectionSerializer
 object LocationSerializer : KSerializer<Location> {
     override val descriptor: SerialDescriptor
-        get() = SerialDescriptor("Location") {
-            element<String>("package")
-            element<String>("file")
-            element<Int>("line")
+        get() = object : SerialClassDescImpl("Location") {
+            init {
+                addElement("package")
+                addElement("file")
+                addElement("line")
+            }
         }
 
-    override fun serialize(encoder: Encoder, value: Location) {
+    override fun serialize(encoder: Encoder, obj: Location) {
         val output = encoder.beginStructure(descriptor)
-        output.encodeStringElement(descriptor, 0, value.`package`.toString())
-        output.encodeStringElement(descriptor, 1, value.file)
-        output.encodeIntElement(descriptor, 2, value.line)
+        output.encodeStringElement(descriptor, 0, obj.`package`.toString())
+        output.encodeStringElement(descriptor, 1, obj.file)
+        output.encodeIntElement(descriptor, 2, obj.line)
         output.endStructure(descriptor)
     }
 
@@ -146,34 +147,35 @@ internal object ClassSerializer : KSerializer<Class> {
     lateinit var cm: ClassManager
 
     override val descriptor: SerialDescriptor
-        get() = PrimitiveDescriptor("fullname", PrimitiveKind.STRING)
+        get() = StringDescriptor.withName("fullname")
 
-    override fun serialize(encoder: Encoder, value: Class) {
-        encoder.encodeString(value.fullname)
+    override fun serialize(encoder: Encoder, obj: Class) {
+        encoder.encodeString(obj.fullname)
     }
 
     override fun deserialize(decoder: Decoder) = cm[decoder.decodeString()]
 }
 
-@ImplicitReflectionSerializer
 @Serializer(forClass = Method::class)
 internal object MethodSerializer : KSerializer<Method> {
     lateinit var cm: ClassManager
 
     override val descriptor: SerialDescriptor
-        get() = SerialDescriptor("Method") {
-            element("class", ClassSerializer.descriptor)
-            element<String>("name")
-            element<String>("retval")
-            element<List<String>>("arguments")
+        get() = object : SerialClassDescImpl("Method") {
+            init {
+                addElement("class")
+                addElement("name")
+                addElement("retval")
+                addElement("arguments")
+            }
         }
 
-    override fun serialize(encoder: Encoder, value: Method) {
+    override fun serialize(encoder: Encoder, obj: Method) {
         val output = encoder.beginStructure(descriptor)
-        output.encodeSerializableElement(descriptor, 0, ClassSerializer, value.`class`)
-        output.encodeStringElement(descriptor, 1, value.name)
-        output.encodeStringElement(descriptor, 2, value.returnType.asmDesc)
-        output.encodeSerializableElement(descriptor, 3, String.serializer().list, value.argTypes.map { it.asmDesc }.toList())
+        output.encodeSerializableElement(descriptor, 0, ClassSerializer, obj.`class`)
+        output.encodeStringElement(descriptor, 1, obj.name)
+        output.encodeStringElement(descriptor, 2, obj.returnType.asmDesc)
+        output.encodeSerializableElement(descriptor, 3, StringSerializer.list, obj.argTypes.map { it.asmDesc }.toList())
         output.endStructure(descriptor)
     }
 
@@ -189,7 +191,7 @@ internal object MethodSerializer : KSerializer<Method> {
                 0 -> klass = input.decodeSerializableElement(descriptor, i, ClassSerializer)
                 1 -> name = input.decodeStringElement(descriptor, i)
                 2 -> retval = parseDesc(cm.type, input.decodeStringElement(descriptor, i))
-                3 -> argTypes = input.decodeSerializableElement(descriptor, i, String.serializer().list)
+                3 -> argTypes = input.decodeSerializableElement(descriptor, i, StringSerializer.list)
                         .map { parseDesc(cm.type, it) }
                         .toTypedArray()
                 else -> throw SerializationException("Unknown index $i")
