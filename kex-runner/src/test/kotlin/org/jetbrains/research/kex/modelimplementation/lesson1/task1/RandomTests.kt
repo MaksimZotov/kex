@@ -28,7 +28,9 @@ class RandomTests {
         "--jar",
         "C:\\Users\\Maksim\\IdeaProjects\\kex\\kfirst-19.0.2.jar",
         "--target",
-        "lesson1.task1.*"
+        "lesson1.task1.*",
+        "--config",
+        "C:\\Users\\Maksim\\IdeaProjects\\kex\\kex.ini"
     ))
 
     @BeforeAll
