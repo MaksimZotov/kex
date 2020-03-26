@@ -42,6 +42,8 @@ import java.nio.file.Paths
 import kotlin.system.exitProcess
 
 class Kex(args: Array<String>) {
+    var inputs: Map<String, Set<Array<Any?>>> = mapOf()
+
     val cmd = CmdConfig(args)
     val properties = cmd.getCmdValue("config", "kex.ini")
     val logName = cmd.getCmdValue("log", "kex.log")
@@ -86,16 +88,16 @@ class Kex(args: Array<String>) {
                 `package` = Package.defaultPackage
                 AnalysisLevel.PACKAGE()
             }
-            targetName.matches(Regex("[a-zA-Z]+(\\.[a-zA-Z]+)*\\.\\*")) -> {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.\\*")) -> {
                 `package` = Package.parse(targetName)
                 AnalysisLevel.PACKAGE()
             }
-            targetName.matches(Regex("[a-zA-Z]+(\\.[a-zA-Z]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) -> {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) -> {
                 val (klassName, methodName) = targetName.split("::")
                 `package` = Package.parse("${klassName.dropLastWhile { it != '.' }}*")
                 AnalysisLevel.METHOD(klassName.replace('.', '/'), methodName)
             }
-            targetName.matches(Regex("[a-zA-Z]+(\\.[a-zA-Z]+)*\\.[a-zA-Z\$_]+")) -> {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+")) -> {
                 `package` = Package.parse("${targetName.dropLastWhile { it != '.' }}*")
                 AnalysisLevel.CLASS(targetName.replace('.', '/'))
             }
@@ -209,6 +211,8 @@ class Kex(args: Array<String>) {
         log.info("Overall summary for ${cm.methodInfos.size} methods:\n" +
                 "body coverage: ${String.format("%.2f", coverage.bodyCoverage)}%\n" +
                 "full coverage: ${String.format("%.2f", coverage.fullCoverage)}%")
+
+       inputs = traceManager.getMapOfInputs()
     }
 
     private fun concolic(originalContext: ExecutionContext, analysisContext: ExecutionContext) {
@@ -224,6 +228,8 @@ class Kex(args: Array<String>) {
         log.info("Overall summary for ${cm.methodInfos.size} methods:\n" +
                 "body coverage: ${String.format("%.2f", coverage.bodyCoverage)}%\n" +
                 "full coverage: ${String.format("%.2f", coverage.fullCoverage)}%")
+
+        inputs = traceManager.getMapOfInputs()
     }
 
     protected fun runPipeline(context: ExecutionContext, target: Package, init: Pipeline.() -> Unit) =

@@ -272,6 +272,12 @@
                     <artifactId>kex-z3</artifactId>
                     <version>${project.version}</version>
                 </dependency>
+                <dependency>
+                    <groupId>org.junit.jupiter</groupId>
+                    <artifactId>junit-jupiter</artifactId>
+                    <version>RELEASE</version>
+                    <scope>test</scope>
+                </dependency>
             </dependencies>
         </profile>
 

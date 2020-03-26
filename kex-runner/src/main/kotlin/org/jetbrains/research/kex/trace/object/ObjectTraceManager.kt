@@ -49,4 +49,16 @@ class ObjectTraceManager : TraceManager<Trace> {
 
     override fun isCovered(method: Method, bb: BasicBlock): Boolean =
             methodInfos[method]?.any { it.isCovered(bb) } ?: false
+
+    fun getMapOfInputs(): Map<String, Set<Array<Any?>>> {
+        val map: MutableMap<String, MutableSet<Array<Any?>>> = mutableMapOf()
+        for ((method, traces) in methodInfos)
+            for (trace in traces)
+                if (trace.actions.isNotEmpty() && trace.actions[0] is MethodEntry) {
+                    val methodName = method.`class`.`package`.name + method.name + method.desc
+                    map[methodName] = map.getOrDefault(methodName, mutableSetOf())
+                    map[methodName]!!.add((trace.actions[0] as MethodEntry).args)
+                }
+        return map
+    }
 }
