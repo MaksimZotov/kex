@@ -111,7 +111,7 @@ class Kex(args: Array<String>) {
         val classLoader = URLClassLoader(arrayOf(outputDir.toUri().toURL()))
 
         jar = Jar(jarPath, `package`)
-        
+
         classManager.initialize(jar)
         origManager.initialize(jar)
 

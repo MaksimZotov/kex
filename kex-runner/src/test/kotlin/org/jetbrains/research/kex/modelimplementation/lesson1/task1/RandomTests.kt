@@ -24,7 +24,7 @@ class RandomTests {
     val packageName = "lesson1/task1"
     val kex: Kex = Kex(arrayOf(
         "--jar",
-        "C:\\Users\\Maksim\\IdeaProjects\\kex\\kex-test\\target\\kex-test-0.0.1.jar",
+        "C:\\Users\\Maksim\\IdeaProjects\\kex\\kfirst-19.0.2.jar",
         "--config",
         "C:\\Users\\Maksim\\IdeaProjects\\kex\\kex.ini"
     ))
@@ -32,13 +32,15 @@ class RandomTests {
     @Test
     @Tag("Example")
     fun testIf() {
-        kex.generateInputs("org.jetbrains.research.kex.test.BasicTests::testIf")
-        val methodName = "testIf(int, int): int"
+        kex.generateInputs("lesson1.task1.*")
+        /*
+        val methodName = "someFun(int, int): int"
         for (input in kex.inputs[packageName + methodName]!!) {
             val expected = ModelImplementation.testIf(input[0] as Int, input[1] as Int)
             val actual = testIf(input[0] as Int, input[1] as Int)
             println("expected: $expected actual: $actual")
             assertEquals(expected, actual)
         }
+         */
     }
 }
