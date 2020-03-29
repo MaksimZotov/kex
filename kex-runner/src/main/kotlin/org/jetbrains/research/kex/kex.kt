@@ -110,14 +110,10 @@ class Kex(args: Array<String>) {
 
         val classLoader = URLClassLoader(arrayOf(outputDir.toUri().toURL()))
 
-        val analysisJars = listOfNotNull(
-                jar,
-                kexConfig.getStringValue("kex", "rtPath")?.let {
-                    Jar(Paths.get(it), Package.defaultPackage)
-                }
-        )
-        classManager.initialize(*analysisJars.toTypedArray())
-        origManager.initialize(*analysisJars.toTypedArray())
+        jar = Jar(jarPath, `package`)
+        
+        classManager.initialize(jar)
+        origManager.initialize(jar)
 
         val originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
         val analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
