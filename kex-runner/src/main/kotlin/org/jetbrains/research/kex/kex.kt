@@ -43,6 +43,7 @@ import kotlin.system.exitProcess
 
 class Kex(args: Array<String>) {
     var inputs: Map<String, Set<Array<Any?>>> = mapOf()
+    var jarPath: Path
 
     val cmd = CmdConfig(args)
     val properties = cmd.getCmdValue("config", "kex.ini")
@@ -51,13 +52,13 @@ class Kex(args: Array<String>) {
     val classPath = System.getProperty("java.class.path")
     val mode = Mode.bmc
 
-    val jar: Jar
-    val outputDir: Path
+    var jar: Jar
+    var outputDir: Path
 
-    val classManager: ClassManager
-    val origManager: ClassManager
+    var classManager: ClassManager
+    var origManager: ClassManager
 
-    val `package`: Package
+    lateinit var `package`: Package
     var klass: Class? = null
     var methods: Set<Method>? = null
 
@@ -78,38 +79,37 @@ class Kex(args: Array<String>) {
         kexConfig.initLog(logName)
 
         val jarName = cmd.getCmdValue("jar")
-        val targetName = cmd.getCmdValue("target")
         require(jarName != null, cmd::printHelp)
 
-        val jarPath = Paths.get(jarName).toAbsolutePath()
+        jarPath = Paths.get(jarName).toAbsolutePath()
+        jar = Jar(jarPath, Package.defaultPackage)
 
-        val analysisLevel = when {
-            targetName == null -> {
-                `package` = Package.defaultPackage
-                AnalysisLevel.PACKAGE()
-            }
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.\\*")) -> {
-                `package` = Package.parse(targetName)
-                AnalysisLevel.PACKAGE()
-            }
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) -> {
-                val (klassName, methodName) = targetName.split("::")
-                `package` = Package.parse("${klassName.dropLastWhile { it != '.' }}*")
-                AnalysisLevel.METHOD(klassName.replace('.', '/'), methodName)
-            }
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+")) -> {
-                `package` = Package.parse("${targetName.dropLastWhile { it != '.' }}*")
-                AnalysisLevel.CLASS(targetName.replace('.', '/'))
-            }
+        classManager = ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false))
+        origManager = ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false))
+
+        outputDir = (cmd.getCmdValue("output")?.let { Paths.get(it) }
+                ?: Files.createTempDirectory(Paths.get("."), "kex-instrumented")).toAbsolutePath()
+
+        jar.unpack(classManager, outputDir, true)
+    }
+
+    fun generateInputs(targetName: String) {
+        `package` = when {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.\\*")) ->
+                Package.parse(targetName)
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) ->
+                Package.parse("${targetName.split("::")[0].dropLastWhile { it != '.' }}*")
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+")) ->
+                Package.parse("${targetName.dropLastWhile { it != '.' }}*")
             else -> {
                 log.error("Could not parse target $targetName")
                 cmd.printHelp()
                 exitProcess(1)
             }
         }
-        jar = Jar(jarPath, `package`)
-        classManager = ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false))
-        origManager = ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false))
+
+        val classLoader = URLClassLoader(arrayOf(outputDir.toUri().toURL()))
+
         val analysisJars = listOfNotNull(
                 jar,
                 kexConfig.getStringValue("kex", "rtPath")?.let {
@@ -119,23 +119,15 @@ class Kex(args: Array<String>) {
         classManager.initialize(*analysisJars.toTypedArray())
         origManager.initialize(*analysisJars.toTypedArray())
 
-        when (analysisLevel) {
-            is AnalysisLevel.PACKAGE -> {
-                log.debug("Running with jar ${jar.name} and default package $`package`")
-            }
-            is AnalysisLevel.CLASS -> {
-                klass = classManager[analysisLevel.klass]
-                log.debug("Running with jar ${jar.name} and class $klass")
-            }
-            is AnalysisLevel.METHOD -> {
-                klass = classManager[analysisLevel.klass]
-                methods = klass!!.getMethods(analysisLevel.method)
-                log.debug("Running with jar ${jar.name} and methods $methods")
-            }
+        val originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
+        val analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
+
+        runPipeline(originalContext, `package`) {
+            +RuntimeTraceCollector(originalContext.cm)
+            +ClassWriter(originalContext, outputDir)
         }
 
-        outputDir = (cmd.getCmdValue("output")?.let { Paths.get(it) }
-                ?: Files.createTempDirectory(Paths.get("."), "kex-instrumented")).toAbsolutePath()
+        bmc(originalContext, analysisContext)
     }
 
     private fun updateClassPath(loader: URLClassLoader) {
@@ -149,24 +141,7 @@ class Kex(args: Array<String>) {
 
     @ImplicitReflectionSerializer
     fun main() {
-        // write all classes to output directory, so they will be seen by ClassLoader
-        jar.unpack(classManager, outputDir, true)
-        val classLoader = URLClassLoader(arrayOf(outputDir.toUri().toURL()))
-
-        val originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
-        val analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
-
-        // instrument all classes in the target package
-        runPipeline(originalContext, `package`) {
-            +RuntimeTraceCollector(originalContext.cm)
-            +ClassWriter(originalContext, outputDir)
-        }
-
-        when (cmd.getEnumValue<Mode>("mode") ?: this.mode) {
-            Mode.bmc -> bmc(originalContext, analysisContext)
-            Mode.concolic -> concolic(originalContext, analysisContext)
-            else -> debug(analysisContext)
-        }
+        println("this method does nothing")
     }
 
     @ImplicitReflectionSerializer
@@ -212,7 +187,7 @@ class Kex(args: Array<String>) {
                 "body coverage: ${String.format("%.2f", coverage.bodyCoverage)}%\n" +
                 "full coverage: ${String.format("%.2f", coverage.fullCoverage)}%")
 
-       inputs = traceManager.getMapOfInputs()
+        inputs = traceManager.getMapOfInputs()
     }
 
     private fun concolic(originalContext: ExecutionContext, analysisContext: ExecutionContext) {
