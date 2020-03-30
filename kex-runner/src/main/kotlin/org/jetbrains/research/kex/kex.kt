@@ -43,7 +43,12 @@ import kotlin.system.exitProcess
 
 class Kex(args: Array<String>) {
     var inputs: Map<String, Set<Array<Any?>>> = mapOf()
-    var jarPath: Path
+
+    val originalContext: ExecutionContext
+    val analysisContext: ExecutionContext
+    val jarPath: Path
+    val classLoader: URLClassLoader
+
 
     val cmd = CmdConfig(args)
     val properties = cmd.getCmdValue("config", "kex.ini")
@@ -52,11 +57,11 @@ class Kex(args: Array<String>) {
     val classPath = System.getProperty("java.class.path")
     val mode = Mode.bmc
 
-    var jar: Jar
-    var outputDir: Path
+    val jar: Jar
+    val outputDir: Path
 
-    var classManager: ClassManager
-    var origManager: ClassManager
+    val classManager: ClassManager
+    val origManager: ClassManager
 
     lateinit var `package`: Package
     var klass: Class? = null
@@ -82,41 +87,59 @@ class Kex(args: Array<String>) {
         require(jarName != null, cmd::printHelp)
 
         jarPath = Paths.get(jarName).toAbsolutePath()
+
         jar = Jar(jarPath, Package.defaultPackage)
 
         classManager = ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false))
         origManager = ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false))
+        val analysisJars = listOfNotNull(
+                jar,
+                kexConfig.getStringValue("kex", "rtPath")?.let {
+                    Jar(Paths.get(it), Package.defaultPackage)
+                }
+        )
+        classManager.initialize(*analysisJars.toTypedArray())
+        origManager.initialize(*analysisJars.toTypedArray())
 
         outputDir = (cmd.getCmdValue("output")?.let { Paths.get(it) }
                 ?: Files.createTempDirectory(Paths.get("."), "kex-instrumented")).toAbsolutePath()
 
-        jar.unpack(classManager, outputDir, true)
+        jar.unpack(ClassManager(KfgConfig(flags = Flags.readAll, failOnError = false)), outputDir, true)
+
+        classLoader = URLClassLoader(arrayOf(outputDir.toUri().toURL()))
+
+        originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
+        analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
     }
 
     fun generateInputs(targetName: String) {
-        `package` = when {
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.\\*")) ->
-                Package.parse(targetName)
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) ->
-                Package.parse("${targetName.split("::")[0].dropLastWhile { it != '.' }}*")
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+")) ->
-                Package.parse("${targetName.dropLastWhile { it != '.' }}*")
+        val analysisLevel = when {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.\\*")) -> {
+                `package` = Package.parse(targetName)
+                AnalysisLevel.PACKAGE()
+            }
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) -> {
+                val (klassName, methodName) = targetName.split("::")
+                `package` = Package.parse("${klassName.dropLastWhile { it != '.' }}*")
+                AnalysisLevel.METHOD(klassName.replace('.', '/'), methodName)
+            }
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+")) -> {
+                `package` = Package.parse("${targetName.dropLastWhile { it != '.' }}*")
+                AnalysisLevel.CLASS(targetName.replace('.', '/'))
+            }
             else -> {
                 log.error("Could not parse target $targetName")
                 cmd.printHelp()
                 exitProcess(1)
             }
         }
-
-        val classLoader = URLClassLoader(arrayOf(outputDir.toUri().toURL()))
-
-        jar = Jar(jarPath, `package`)
-
-        classManager.initialize(jar)
-        origManager.initialize(jar)
-
-        val originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
-        val analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
+        when (analysisLevel) {
+            is AnalysisLevel.CLASS -> klass = classManager[analysisLevel.klass]
+            is AnalysisLevel.METHOD -> {
+                klass = classManager[analysisLevel.klass]
+                methods = klass!!.getMethods(analysisLevel.method)
+            }
+        }
 
         runPipeline(originalContext, `package`) {
             +RuntimeTraceCollector(originalContext.cm)
@@ -124,6 +147,9 @@ class Kex(args: Array<String>) {
         }
 
         bmc(originalContext, analysisContext)
+
+        klass = null
+        methods = null
     }
 
     private fun updateClassPath(loader: URLClassLoader) {
