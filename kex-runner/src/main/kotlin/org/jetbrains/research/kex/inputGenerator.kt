@@ -102,18 +102,17 @@ class InputGenerator(args: Array<String>) {
                 `package` = Package.parse(targetName)
                 AnalysisLevel.PACKAGE()
             }
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+::[a-zA-Z\$_]+")) -> {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_\\d]+::[a-zA-Z\$_\\d]+")) -> {
                 val (klassName, methodName) = targetName.split("::")
                 `package` = Package.parse("${klassName.dropLastWhile { it != '.' }}*")
                 AnalysisLevel.METHOD(klassName.replace('.', '/'), methodName)
             }
-            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_]+")) -> {
+            targetName.matches(Regex("[a-zA-Z\\d]+(\\.[a-zA-Z\\d]+)*\\.[a-zA-Z\$_\\d]+")) -> {
                 `package` = Package.parse("${targetName.dropLastWhile { it != '.' }}*")
                 AnalysisLevel.CLASS(targetName.replace('.', '/'))
             }
             else -> {
                 log.error("Could not parse target $targetName")
-                cmd.printHelp()
                 exitProcess(1)
             }
         }
