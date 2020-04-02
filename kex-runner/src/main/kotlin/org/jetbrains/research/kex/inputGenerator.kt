@@ -94,6 +94,11 @@ class InputGenerator(args: Array<String>) {
 
         originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
         analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
+
+        runPipeline(originalContext, Package.defaultPackage) {
+            +RuntimeTraceCollector(originalContext.cm)
+            +ClassWriter(originalContext, outputDir)
+        }
     }
 
     fun generateInputs(targetName: String) {
@@ -122,11 +127,6 @@ class InputGenerator(args: Array<String>) {
                 klass = classManager[analysisLevel.klass]
                 methods = klass!!.getMethods(analysisLevel.method)
             }
-        }
-
-        runPipeline(originalContext, `package`) {
-            +RuntimeTraceCollector(originalContext.cm)
-            +ClassWriter(originalContext, outputDir)
         }
 
         bmc(originalContext, analysisContext)
