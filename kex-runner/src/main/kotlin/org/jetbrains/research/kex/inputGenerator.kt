@@ -30,6 +30,8 @@ import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
 import kotlin.system.exitProcess
 
 class InputGenerator(args: Array<String>) {
@@ -95,10 +97,17 @@ class InputGenerator(args: Array<String>) {
         originalContext = ExecutionContext(origManager, jar.classLoader, EasyRandomDriver())
         analysisContext = ExecutionContext(classManager, classLoader, EasyRandomDriver())
 
-        runPipeline(originalContext, Package.defaultPackage) {
-            +RuntimeTraceCollector(originalContext.cm)
-            +ClassWriter(originalContext, outputDir)
-        }
+        val namesOfPackages = mutableSetOf<String>()
+        val enumeration = JarFile(jarPath.toFile()).entries()
+        while (enumeration.hasMoreElements())
+            namesOfPackages.add("${(enumeration.nextElement() as JarEntry).name.substringBefore('/')}.*")
+        namesOfPackages.remove("META-INF.*")
+
+        for (packageName in namesOfPackages)
+            runPipeline(originalContext, Package.parse(packageName)) {
+                +RuntimeTraceCollector(originalContext.cm)
+                +ClassWriter(originalContext, outputDir)
+            }
     }
 
     fun generateInputs(targetName: String) {
