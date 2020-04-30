@@ -187,6 +187,11 @@ class ExternalAnnotationsLoader : AnnotationsLoader {
                     }
                     ')' -> {
                         // this is a call
+                        if (test)
+                            call.annotations += annotations
+                        else
+                            call.params[0].annotations += annotations
+                        test = true
                         call.annotations += annotations
                         annotations.forEach {
                             try { it.initialize(-1) }
@@ -202,6 +207,8 @@ class ExternalAnnotationsLoader : AnnotationsLoader {
             throw AnnotationParserException("Error while parsing \"$file\"", thr)
         }
     }
+
+    var test = false
 
     override fun toString(): String {
         return root.toString()

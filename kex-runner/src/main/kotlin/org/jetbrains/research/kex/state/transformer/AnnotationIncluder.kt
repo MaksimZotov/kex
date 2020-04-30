@@ -2,15 +2,51 @@ package org.jetbrains.research.kex.state.transformer
 
 import com.abdullin.kthelper.assert.unreachable
 import org.jetbrains.research.kex.annotations.AnnotationsLoader
+import org.jetbrains.research.kex.ktype.KexInt
 import org.jetbrains.research.kex.state.*
 import org.jetbrains.research.kex.state.predicate.CallPredicate
 import org.jetbrains.research.kex.state.predicate.Predicate
+import org.jetbrains.research.kex.state.term.ArgumentTerm
 import org.jetbrains.research.kex.state.term.CallTerm
+import org.jetbrains.research.kfg.ir.Method
 import java.util.*
 
 class AnnotationIncluder(val annotations: AnnotationsLoader) : RecollectingTransformer<AnnotationIncluder> {
 
     override val builders = ArrayDeque<StateBuilder>().apply { push(StateBuilder()) }
+
+    fun handleTestMethodOnlyInt(method: Method) {
+        val args = arrayListOf<ArgumentTerm>()
+        val argTypes = method.argTypes
+        for (i in argTypes.indices)
+            args.add(ArgumentTerm(KexInt(), i))
+
+        val annotatedCall = annotations.getExactCall("${method.`class`}.${method.name}",
+                *Array(argTypes.size) { argTypes[it].name }) ?: return
+        val states = mutableListOf<PredicateState>()
+        for ((i, param) in annotatedCall.params.withIndex()) {
+            for (annotation in param.annotations) {
+                val arg = args[i]
+                annotation.preciseValue(arg)?.run { states += this }
+                states += annotation.preciseParam(args[i], i) ?: continue
+            }
+        }
+        val predicates = mutableListOf<Predicate>()
+        for (state in states) {
+            val ps = expand(state)
+            @Suppress("UNCHECKED_CAST")
+            when (ps) {
+                is List<*> -> predicates += ps as List<Predicate>
+                is PredicateState -> {
+                    currentBuilder += BasicState(predicates.toList())
+                    currentBuilder += ps
+                    predicates.clear()
+                }
+            }
+        }
+        if (predicates.isNotEmpty())
+            currentBuilder += BasicState(predicates.toList())
+    }
 
     override fun transformCallPredicate(predicate: CallPredicate): Predicate {
         val call = predicate.call as CallTerm
