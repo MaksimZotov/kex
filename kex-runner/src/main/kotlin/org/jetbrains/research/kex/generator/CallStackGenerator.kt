@@ -47,7 +47,7 @@ class CallStackGenerator(val context: ExecutionContext, val psa: PredicateStateA
     private val descriptorMap = mutableMapOf<Descriptor, Node>()
 
     private fun prepareState(method: Method, ps: PredicateState, ignores: Set<Term> = setOf()) = transform(ps) {
-        if (annotationsEnabled) +AnnotationIncluder(AnnotationManager.defaultLoader)
+        if (annotationsEnabled) +AnnotationIncluder(AnnotationManager.defaultLoader, method)
         if (isInliningEnabled) +MethodInliner(psa)
         +IntrinsicAdapter
         +ReflectionInfoAdapter(method, context.loader, ignores)

@@ -2,27 +2,46 @@ package org.jetbrains.research.kex.state.transformer
 
 import com.abdullin.kthelper.assert.unreachable
 import org.jetbrains.research.kex.annotations.AnnotationsLoader
-import org.jetbrains.research.kex.ktype.KexInt
+import org.jetbrains.research.kex.ktype.*
 import org.jetbrains.research.kex.state.*
 import org.jetbrains.research.kex.state.predicate.CallPredicate
 import org.jetbrains.research.kex.state.predicate.Predicate
 import org.jetbrains.research.kex.state.term.ArgumentTerm
 import org.jetbrains.research.kex.state.term.CallTerm
+import org.jetbrains.research.kex.state.term.ConstClassTerm
+import org.jetbrains.research.kfg.ir.Class
+import org.jetbrains.research.kfg.ir.ConcreteClass
 import org.jetbrains.research.kfg.ir.Method
+import org.jetbrains.research.kfg.type.DoubleType
+import org.jetbrains.research.kfg.type.IntType
+import org.jetbrains.research.kfg.type.Integral
+import org.objectweb.asm.tree.ClassNode
 import java.util.*
+import kotlin.collections.ArrayList
 
-class AnnotationIncluder(val annotations: AnnotationsLoader) : RecollectingTransformer<AnnotationIncluder> {
+class AnnotationIncluder(val annotations: AnnotationsLoader, val method: Method) : RecollectingTransformer<AnnotationIncluder> {
 
     override val builders = ArrayDeque<StateBuilder>().apply { push(StateBuilder()) }
 
-    fun handleTestMethodOnlyInt(method: Method) {
+    override fun apply(ps: PredicateState): PredicateState {
+        handleMethodParameters()
+        return super.apply(ps)
+    }
+
+    fun handleMethodParameters() {
         val args = arrayListOf<ArgumentTerm>()
         val argTypes = method.argTypes
-        for (i in argTypes.indices)
-            args.add(ArgumentTerm(KexInt(), i))
+        for (i in argTypes.indices) {
+            val type = when (argTypes[i]) {
+                is DoubleType -> KexDouble()
+                is IntType -> KexInt()
+                else -> KexBool()
+            }
+            args.add(ArgumentTerm(type, i))
+        }
 
         val annotatedCall = annotations.getExactCall("${method.`class`}.${method.name}",
-                *Array(argTypes.size) { argTypes[it].name }) ?: return
+            *Array(argTypes.size) { argTypes[it].name }) ?: return
         val states = mutableListOf<PredicateState>()
         for ((i, param) in annotatedCall.params.withIndex()) {
             for (annotation in param.annotations) {
@@ -54,7 +73,7 @@ class AnnotationIncluder(val annotations: AnnotationsLoader) : RecollectingTrans
         val args = call.arguments
         val argTypes = method.argTypes
         val annotatedCall = annotations.getExactCall("${method.`class`}.${method.name}",
-                *Array(argTypes.size) { argTypes[it].name }) ?: return predicate
+            *Array(argTypes.size) { argTypes[it].name }) ?: return predicate
         val states = mutableListOf<PredicateState>()
         for ((i, param) in annotatedCall.params.withIndex()) {
             for (annotation in param.annotations) {

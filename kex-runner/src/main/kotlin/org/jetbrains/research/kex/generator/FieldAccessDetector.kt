@@ -21,6 +21,7 @@ val Method.fieldAccesses get() = MethodFieldAccessDetector.fieldAccessMap.getOrD
 
 class MethodFieldAccessDetector(val ctx: ExecutionContext, val psa: PredicateStateAnalysis) : MethodVisitor {
     override val cm: ClassManager get() = ctx.cm
+
     companion object {
         val fieldAccessMap: Map<Method, Set<Field>> get() = methodAccessMap
 
@@ -37,17 +38,8 @@ class MethodFieldAccessDetector(val ctx: ExecutionContext, val psa: PredicateSta
         methodAccessMap[method] = fieldAccessList
     }
 
-
-    lateinit var annotationIncluder: AnnotationIncluder
-
-    private fun prepareState(ps: PredicateState, method: Method): PredicateState {
-        if (annotationsEnabled) {
-            annotationIncluder = AnnotationIncluder(AnnotationManager.defaultLoader)
-            annotationIncluder.handleTestMethodOnlyInt(method)
-        }
-        return transform(ps) {
-            if (annotationsEnabled) +annotationIncluder
-            if (isInliningEnabled) +MethodInliner(psa)
-        }
+    private fun prepareState(ps: PredicateState, method: Method): PredicateState = transform(ps) {
+        if (annotationsEnabled) +AnnotationIncluder(AnnotationManager.defaultLoader, method)
+        if (isInliningEnabled) +MethodInliner(psa)
     }
 }

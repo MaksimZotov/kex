@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root>
-  <item name="lesson1.task1.SimpleKt int seconds(int, int, int)">
-    <annotation name='org.jetbrains.annotations.Range'>
-      <val name="from" val="64"/>
-      <val name="to" val="128"/>
-    </annotation>
-  </item>
   <item name='com.sun.jdi.ClassType com.sun.jdi.ClassType superclass()'>
     <annotation name='org.jetbrains.annotations.Nullable'/>
   </item>

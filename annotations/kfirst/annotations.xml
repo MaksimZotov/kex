@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <item name="lesson1.task1.SimpleKt int seconds(int, int, int)">
+    <parameter index = "0">
+      <annotationParam name='org.jetbrains.annotations.ParamLongRange'>
+        <val name="from" val="5"/>
+        <val name="to" val="6"/>
+      </annotationParam>
+    </parameter>
+    <parameter index = "1">
+      <annotationParam name='org.jetbrains.annotations.ParamLongRange'>
+        <val name="from" val="124"/>
+        <val name="to" val="5023"/>
+      </annotationParam>
+    </parameter>
+    <parameter index = "2">
+      <annotationParam name='org.jetbrains.annotations.ParamLongRange'>
+        <val name="from" val="523"/>
+        <val name="to" val="2343"/>
+      </annotationParam>
+    </parameter>
+  </item>
+</root>
