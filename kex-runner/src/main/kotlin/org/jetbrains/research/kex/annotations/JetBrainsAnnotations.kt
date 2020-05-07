@@ -16,18 +16,20 @@ import org.jetbrains.research.kex.state.term.Term
 import org.jetbrains.research.kex.state.term.term
 import org.jetbrains.research.kex.state.wrap
 
-@AnnotationFunctionality("org.jetbrains.annotations.ParamDoubleRange")
-class ParamDoubleRange(val from: Double, val to: Double) : AnnotationInfo() {
+// Annotations for kfirst
+@AnnotationFunctionality("org.jetbrains.annotations.InFloatRange")
+class InFloatRange(val from: Double, val to: Double) : AnnotationInfo() {
     override fun preciseValue(value: Term) =
-        assume { (value ge from) equality true }.wrap() + assume { (value le to) equality true }
+            assume { (value ge from) equality true }.wrap() + assume { (value le to) equality true }
 }
 
-@AnnotationFunctionality("org.jetbrains.annotations.ParamLongRange")
-class ParamLongRange(val from: Long, val to: Long) : AnnotationInfo() {
+@AnnotationFunctionality("org.jetbrains.annotations.InRange")
+class InRange(val from: Long, val to: Long) : AnnotationInfo() {
     override fun preciseValue(value: Term) =
-        assume { (value ge from) equality true }.wrap() + assume { (value le to) equality true }
+            assume { (value ge from) equality true }.wrap() + assume { (value le to) equality true }
 }
 
+// Default annotations
 @AnnotationFunctionality("org.jetbrains.annotations.Range")
 class Range(val from: Long, val to: Long) : AnnotationInfo() {
     override fun preciseValue(value: Term) =
