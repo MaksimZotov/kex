@@ -17,13 +17,13 @@ import org.jetbrains.research.kex.state.term.term
 import org.jetbrains.research.kex.state.wrap
 
 // Annotations for kfirst
-@AnnotationFunctionality("org.jetbrains.annotations.InFloatRange")
+@AnnotationFunctionality("ru.spbstu.kotlin.generate.InFloatRange")
 class InFloatRange(val from: Double, val to: Double) : AnnotationInfo() {
     override fun preciseValue(value: Term) =
             assume { (value ge from) equality true }.wrap() + assume { (value le to) equality true }
 }
 
-@AnnotationFunctionality("org.jetbrains.annotations.InRange")
+@AnnotationFunctionality("ru.spbstu.kotlin.generate.InRange")
 class InRange(val from: Long, val to: Long) : AnnotationInfo() {
     override fun preciseValue(value: Term) =
             assume { (value ge from) equality true }.wrap() + assume { (value le to) equality true }
