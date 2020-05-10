@@ -23,7 +23,6 @@ class ExternalAnnotationsLoader : AnnotationsLoader {
                 scanSubTree(file)
             }
         }
-        val t = 0
     }
 
     private fun findPackage(name: String, emplace: Boolean = false): PackageTreeNode? {
