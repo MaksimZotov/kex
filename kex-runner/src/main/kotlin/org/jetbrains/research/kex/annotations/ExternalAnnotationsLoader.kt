@@ -112,32 +112,14 @@ class ExternalAnnotationsLoader : AnnotationsLoader {
         val params = node.getElementsByTagName("parameter")
         var i = 0
         for (param in generateSequence { if (i == params.length) null else params.item(i++) as Element })
-            indexAndAnnotatons[param.attributes.getNamedItem("index").nodeValue] = parseParamAnnotations(param)
+            indexAndAnnotatons[param.attributes.getNamedItem("index").nodeValue] =
+                    parseAnnotations(param, "annotationParam")
         return indexAndAnnotatons
     }
 
-    fun parseParamAnnotations(param: Element): List<AnnotationInfo> {
+    fun parseAnnotations(param: Element, annotationType: String): List<AnnotationInfo> {
         val result = mutableListOf<AnnotationInfo>()
-        val nodes = param.getElementsByTagName("annotationParam")
-        var i = 0
-        for (annotationNode in generateSequence { if (i == nodes.length) null else nodes.item(i++) as Element }) {
-            val name = annotationNode.attributes.getNamedItem("name").nodeValue
-            val paramNodes = annotationNode.getElementsByTagName("val")
-            val args = mutableMapOf<String, String>()
-            for (j in 0 until paramNodes.length) {
-                val paramNode = paramNodes.item(j)
-                val attributes = paramNode.attributes
-                args[attributes.getNamedItem("name")?.nodeValue ?: "value"] =
-                    attributes.getNamedItem("val")?.nodeValue ?: paramNode.textContent.trim()
-            }
-            result += AnnotationManager.build(name, args) ?: continue
-        }
-        return result
-    }
-
-    private fun parseAnnotations(node: Element): List<AnnotationInfo> {
-        val result = mutableListOf<AnnotationInfo>()
-        val nodes = node.getElementsByTagName("annotation")
+        val nodes = param.getElementsByTagName(annotationType)
         var i = 0
         for (annotationNode in generateSequence { if (i == nodes.length) null else nodes.item(i++) as Element }) {
             val name = annotationNode.attributes.getNamedItem("name").nodeValue
@@ -164,8 +146,7 @@ class ExternalAnnotationsLoader : AnnotationsLoader {
             }
             val nodes = xmlDoc.getElementsByTagName("item")
             var i = 0
-            val seq = generateSequence { if (i == nodes.length) null else nodes.item(i++) }
-            for (node in seq) {
+            for (node in generateSequence { if (i == nodes.length) null else nodes.item(i++) }) {
                 val nameAttr = node.attributes.getNamedItem("name").nodeValue.trim()
                 var delimiter = nameAttr.indexOf(' ')
                 if (delimiter < 0)
@@ -197,7 +178,7 @@ class ExternalAnnotationsLoader : AnnotationsLoader {
                 while (nameAttr.length > delimiter && nameAttr[delimiter] == ' ') delimiter++
                 if (delimiter == nameAttr.length) delimiter--
 
-                val annotations = try { parseAnnotations(node as Element) }
+                val annotations = try { parseAnnotations(node as Element, "annotation") }
                 catch(thr: Throwable) { throw AnnotationParserException("Error while parsing annotations for \"$call\"", thr) }
 
                 val paramsAnnotations = try { parseParamsAnnotations(node) }
